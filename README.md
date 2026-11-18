@@ -1,43 +1,69 @@
 # Seeing Sounds
 
-**See exactly what you hear, in real time.**
+**See exactly what you hear.**
 
-Seeing Sounds is software for musicians and anyone who loves the full audiovisual experience of music. It turns audio into something you can see, understand, and respond to.
+Seeing Sounds started as a song by [YeahMel](https://yeahmel.com), produced by Stoic Beats. It grew into a brand, and now into software: tools that measure what is happening in a track and turn those measurements into visuals an artist controls.
 
-> Status: early development. The project is being built in the open, so expect things to change quickly.
+> Status: early development, built in the open. Expect things to change.
 
-## What it's for
+## Principles
 
-- **Real-time visuals**: watch sound take shape as it plays.
-- **Detailed musical analysis**: upload audio in supported formats and get a breakdown of what's in it.
-- **Human-felt feedback**: go beyond the numbers with feedback that captures how a track actually feels.
-- **Lyrics to speech**: turn written lyrics into spoken audio.
+- **Math first.** Visuals are driven by measurements of the audio, and the numbers have to add up.
+- **No AI-generated audio or images.** Making and editing music belongs to the artist and their DAW. Artwork comes from the artist.
+- **The artist decides.** The software measures and suggests. Creative judgment stays human.
 
-More is planned. Watch or star this repo to follow along.
+The full product definition is in [PROJECT_RECORD.md](PROJECT_RECORD.md).
 
-## Who it's for
+## What is in this repository
 
-- Independent artists, songwriters, and producers
-- Creatives who want to understand their music more deeply
-- Listeners who want to experience sound visually
+### Audio math engine
 
-## Roadmap
+[`math_engine.py`](math_engine.py) reads an audio file and prints a JSON report:
 
-- [ ] Project foundation and architecture
-- [ ] Audio file upload and supported-format handling
-- [ ] Musical analysis (tempo, key, structure, and more)
-- [ ] Real-time visualization
-- [ ] Feedback tools
-- [ ] Lyrics-to-speech
-- [ ] First public demo
+- Sample rate and duration
+- Estimated tempo (BPM) and onset count
+- Dominant pitch class and a 12-note chroma profile
+- Four equal sections with start, end, and duration
+- An integrity check that the section durations add up to the track length within 1 ms
+
+```
+python math_engine.py path/to/track.wav
+```
+
+### ZEAL cover visualizer
+
+[`visualizer/`](visualizer/) animates the layered cover art for ZEAL, YeahMel's 14-track mixtape, in time with a track. The crown hops on the kick, the mouth opens with the vocal, the flames flicker with the highs, and the collage borders sway with the overall energy. It exports MP4 in 16:9, 9:16, and square.
+
+Setup, options, and the full list of what drives each movement are in [visualizer/README.md](visualizer/README.md).
+
+Artwork and music are not included in this repository.
 
 ## Getting started
 
-Setup instructions will be added once the first working version is ready.
+You need Python 3. The visualizer also needs ffmpeg.
+
+```
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -r visualizer/requirements.txt
+```
+
+On Windows, activate the environment with `.venv\Scripts\activate`.
+
+## Roadmap
+
+- [x] Product definition and technical plan
+- [x] Deterministic audio math engine
+- [x] Offline cover visualizer for ZEAL (16:9, 9:16, square)
+- [ ] Deeper analysis: beat grid, phrasing, tension and release
+- [ ] Local web app: upload a track and see the analysis
+- [ ] Editable rules that map sound to color, motion, and type
+- [ ] First public demo
 
 ## About the creator
 
-Built by **YeahMel** (Melvin Gregory King), an independent hip-hop artist and creative entrepreneur from the Cleveland, Ohio area. The goal is to give independent artists the same quality of tools and knowledge that larger industry players have.
+Built by **YeahMel** (Melvin Gregory King), an independent hip-hop artist and creative entrepreneur from the Cleveland, Ohio area. The goal is to give independent artists the same quality of tools and knowledge that larger industry players have. The community around the music is called The Zealots.
 
 ## Contributing
 
@@ -45,4 +71,4 @@ Ideas and feedback are welcome. Open an issue to share a suggestion or report a 
 
 ## License
 
-Not yet chosen. Until a license is added, all rights are reserved.
+No license has been chosen yet, so all rights are reserved. The ZEAL artwork and music are not part of this repository.

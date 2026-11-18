@@ -5,3 +5,7 @@ __pycache__/
 *.mp3
 *.flac
 projects/
+
+# Visualizer inputs and outputs stay on your machine
+assets/
+*.mp4
