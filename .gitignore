@@ -9,3 +9,7 @@ projects/
 # Visualizer inputs and outputs stay on your machine
 assets/
 *.mp4
+
+# Node
+node_modules/
+dist/

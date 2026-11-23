@@ -1,5 +1,5 @@
 # Seeing Sounds — Project Record
-**Founder:** Melvin Gregory King (YeahMel) | **Last Updated:** Nov 17, 2026
+**Founder:** Melvin Gregory King (YeahMel) | **Last Updated:** Nov 23, 2026
 
 ## Product Vision
 An interactive, ethical music-to-visual analysis and design studio ("CapCut-style control tuned for musicians, driven by verified music math"). Helps independent artists inspect the mathematical and cognitive structure of their tracks and map sound to customizable visual elements (color, motion, typography) while keeping 100% of audio creation, editing, and visual judgment in human hands.
@@ -13,17 +13,18 @@ An interactive, ethical music-to-visual analysis and design studio ("CapCut-styl
 - Target V1 environment: Local web app running on 2017 Intel MacBook Pro; $300 Google Cloud Credits; beginner-friendly, step-by-step workflow.
 
 ## Architecture Decisions
-- **Frontend:** HTML / CSS / Vanilla JS + Web Audio API + HTML5 Canvas (lightweight for 2017 MacBook, sub-20ms audio-visual sync, zero build-tool bloat).
-- **Backend:** Python + FastAPI + `soundfile` / `librosa` / `numpy` (fast CPU math, deterministic, no Cloud TPU cost).
-- **AI Layer:** `google-genai` SDK calling `gemini-3.8-flash` with JSON Schema Structured Outputs.
+- **Frontend:** React + TypeScript + Tailwind CSS (Vite), Web Audio API for decoding and playback, SVG for charts. Lives in `src/`.
+- **Backend:** Node + Express (`server.ts`) running the TypeScript port of the math engine (`src/engine/`). Deterministic, CPU only, no cloud cost.
+- **Python tools:** `math_engine.py` (reference engine, same math as the TypeScript port) and the offline ZEAL cover visualizer (`visualizer/`).
+- **AI Layer:** Planned, not yet wired in. `google-genai` SDK calling `gemini-3.8-flash` with JSON Schema Structured Outputs.
 - **Storage:** Local JSON files (`./projects/`) + `.env` for `GEMINI_API_KEY`.
 
 ## Completed Milestones
 - [x] Discovery & product definition locked (Option B: Interactive Music-Math & Cognitive Visualizer Studio).
 - [x] V1 technical stack, cost guardrails, and privacy architecture established.
-
-## Current Blockers
-- Need to verify Python 3, pip, and Git availability on the 2017 MacBook Pro.
+- [x] Deterministic audio math engine (Python + TypeScript).
+- [x] Offline ZEAL cover visualizer.
+- [x] Local web app: upload a track (or use the built-in sample) and see tempo, onsets, pitch, chroma, energy/brightness timeline, sections, and the integrity check.
 
 ## Next Concrete Task
-- **Milestone 1:** Create the `seeing-sounds` folder, verify Python/Git in macOS Terminal, initialize the repository, and save `PROJECT_RECORD.md`.
+- **Milestone 2:** Deeper analysis: beat grid, phrasing, tension and release, shown on the web app timeline.
