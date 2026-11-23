@@ -30,6 +30,24 @@ The full product definition is in [PROJECT_RECORD.md](PROJECT_RECORD.md).
 python math_engine.py path/to/track.wav
 ```
 
+### Local web app
+
+A browser app for the math engine. Drop in a track, or use the built-in 92 BPM sample, and see:
+
+- Tempo, onset count, dominant pitch, and the integrity check
+- An energy and brightness timeline with onset markers and the four sections. Click to jump playback there.
+- The 12-note chroma profile
+- A downloadable JSON report
+
+WAV files go straight to the server. Other formats (MP3, FLAC, and so on) are decoded in your browser first.
+
+```
+npm install
+npm run dev
+```
+
+Then open http://localhost:3000.
+
 ### ZEAL cover visualizer
 
 [`visualizer/`](visualizer/) animates the layered cover art for ZEAL, YeahMel's 14-track mixtape, in time with a track. The crown hops on the kick, the mouth opens with the vocal, the flames flicker with the highs, and the collage borders sway with the overall energy. It exports MP4 in 16:9, 9:16, and square.
@@ -40,7 +58,7 @@ Artwork and music are not included in this repository.
 
 ## Getting started
 
-You need Python 3. The visualizer also needs ffmpeg.
+You need Node.js 20 or newer for the web app, and Python 3 for the Python tools. The visualizer also needs ffmpeg.
 
 ```
 python3 -m venv .venv
@@ -57,7 +75,7 @@ On Windows, activate the environment with `.venv\Scripts\activate`.
 - [x] Deterministic audio math engine
 - [x] Offline cover visualizer for ZEAL (16:9, 9:16, square)
 - [ ] Deeper analysis: beat grid, phrasing, tension and release
-- [ ] Local web app: upload a track and see the analysis
+- [x] Local web app: upload a track and see the analysis
 - [ ] Editable rules that map sound to color, motion, and type
 - [ ] First public demo
 

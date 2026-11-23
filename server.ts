@@ -105,10 +105,7 @@ async function startServer() {
 
       if (Buffer.isBuffer(req.body)) {
         const fileName = String(req.query.filename || 'uploaded.wav');
-        const arrayBuf = req.body.buffer.slice(
-          req.body.byteOffset,
-          req.body.byteOffset + req.body.byteLength
-        );
+        const arrayBuf = new Uint8Array(req.body).buffer;
         const parsed = parseWavBuffer(arrayBuf);
         const analysis = analyzeAudioSamples(parsed.mono, parsed.sampleRate, fileName, hopMs);
         if (includeSeries) {
