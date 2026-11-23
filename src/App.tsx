@@ -38,8 +38,15 @@ async function requestAnalysis(body: ArrayBuffer, fileName: string): Promise<Mat
     headers: { 'Content-Type': 'audio/wav' },
     body,
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || 'Analysis failed.');
+  if (res.status === 413) throw new Error('This file is too large to analyze (limit is 80 MB of WAV audio).');
+  const text = await res.text();
+  let json: { error?: string } | MathEngineAnalysis;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Analysis failed (HTTP ${res.status}).`);
+  }
+  if (!res.ok) throw new Error(('error' in json && json.error) || 'Analysis failed.');
   return json as MathEngineAnalysis;
 }
 
@@ -211,6 +218,7 @@ export default function App() {
   };
 
   const vm = analysis?.verified_math;
+  const hasPitch = vm ? Object.values(vm.chroma).some((v) => v > 0) : false;
   const activeSection = vm?.sections.find((s) => currentTime >= s.start_sec && currentTime < s.end_sec)?.section;
 
   return (
@@ -291,7 +299,11 @@ export default function App() {
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Stat label="Tempo" value={vm.bpm ? `${vm.bpm} BPM` : '—'} sub="Estimated from onset spacing" />
             <Stat label="Onsets" value={String(vm.onsets)} sub="Detected energy hits" />
-            <Stat label="Dominant pitch" value={vm.dominant_pitch} sub="Strongest note in the chroma" />
+            <Stat
+              label="Dominant pitch"
+              value={hasPitch ? vm.dominant_pitch : '—'}
+              sub={hasPitch ? 'Strongest note in the chroma' : 'No pitched content detected'}
+            />
             <div className="rounded-xl border border-[#2a261f] bg-[#16140f] p-4">
               <div className="text-xs uppercase tracking-widest text-[#9c8f78]">Integrity</div>
               <div
@@ -322,7 +334,7 @@ export default function App() {
 
           <section>
             <h2 className="mb-2 font-semibold">Pitch classes (chroma)</h2>
-            <ChromaChart chroma={vm.chroma} dominant={vm.dominant_pitch} />
+            <ChromaChart chroma={vm.chroma} dominant={hasPitch ? vm.dominant_pitch : ''} />
           </section>
 
           <section>
