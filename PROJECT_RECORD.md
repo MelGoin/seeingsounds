@@ -26,5 +26,7 @@ An interactive, ethical music-to-visual analysis and design studio ("CapCut-styl
 - [x] Offline ZEAL cover visualizer.
 - [x] Local web app: upload a track (or use the built-in sample) and see tempo, onsets, pitch, chroma, energy/brightness timeline, sections, and the integrity check.
 
+- [x] Deeper analysis: key estimate, beat grid, 4-bar phrases with build/release shapes, tension curve, and per-section detail, shown in the web app.
+
 ## Next Concrete Task
-- **Milestone 2:** Deeper analysis: beat grid, phrasing, tension and release, shown on the web app timeline.
+- **Milestone 3:** Song meaning feedback (themes, story, mood, lyrics) through the AI layer.

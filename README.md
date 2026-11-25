@@ -24,7 +24,17 @@ The full product definition is in [PROJECT_RECORD.md](PROJECT_RECORD.md).
 - Estimated tempo (BPM) and onset count
 - Dominant pitch class and a 12-note chroma profile
 - Four equal sections with start, end, and duration
-- An integrity check that the section durations add up to the track length within 1 ms
+- An integrity check that the section and phrase durations add up to the track length within 1 ms
+
+It also reports a deeper analysis under `detailed`:
+
+- Estimated key (Krumhansl-Kessler profiles) with a match score and the runner-up key
+- A beat grid at the measured tempo: beats, downbeats, bars, and how close the onsets land to it
+- Four-bar phrases cut on downbeats, each tagged build, release, arc, or steady
+- A tension curve made from energy (50%), brightness (30%), and onset density (20%)
+- Per-section energy, brightness, tension, onsets per second, and main note
+
+The TypeScript engine in `src/engine/` gives the same numbers.
 
 ```
 python math_engine.py path/to/track.wav
@@ -35,7 +45,9 @@ python math_engine.py path/to/track.wav
 A browser app for the math engine. Drop in a track, or use the built-in 92 BPM sample, and see:
 
 - Tempo, onset count, dominant pitch, and the integrity check
-- An energy and brightness timeline with onset markers and the four sections. Click to jump playback there.
+- Key, beat grid, how tightly the hits land on the beat, and the tension peak
+- An energy, brightness, and tension timeline with beat, phrase, and onset markers and the four sections. Click to jump playback there.
+- Phrase cards (build, release, arc, steady) and per-section detail
 - The 12-note chroma profile
 - A downloadable JSON report
 
@@ -74,7 +86,7 @@ On Windows, activate the environment with `.venv\Scripts\activate`.
 - [x] Product definition and technical plan
 - [x] Deterministic audio math engine
 - [x] Offline cover visualizer for ZEAL (16:9, 9:16, square)
-- [ ] Deeper analysis: beat grid, phrasing, tension and release
+- [x] Deeper analysis: key, beat grid, phrasing, tension and release
 - [x] Local web app: upload a track and see the analysis
 - [ ] Editable rules that map sound to color, motion, and type
 - [ ] First public demo

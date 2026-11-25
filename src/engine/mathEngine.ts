@@ -1,6 +1,11 @@
+import { computeDetailedAnalysis, NOTES } from './detailedAnalysis.ts';
+import type { DetailedAnalysis, DetailedSeries } from './detailedAnalysis.ts';
 import { createRfftPlan, hanning, rfftFreqs, rfftMagnitude } from './fft.ts';
 
-export const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
+export { NOTES };
+
+// Kick and bass band used to find the downbeat
+const LOW_BAND_HZ = 150.0;
 
 export interface SectionInfo {
   section: number;
@@ -22,9 +27,11 @@ export interface MathEngineReport {
     chroma: Record<string, number>;
     sections: SectionInfo[];
   };
+  detailed: DetailedAnalysis;
   integrity: {
     passed: boolean;
     error_ms: number;
+    phrase_error_ms: number;
   };
 }
 
@@ -34,7 +41,7 @@ export interface MathEngineAnalysis extends MathEngineReport {
     rms: number[];
     centroid: number[];
     onset_times: number[];
-  };
+  } & DetailedSeries;
 }
 
 function roundTo(v: number, decimals: number): number {
@@ -158,6 +165,8 @@ export function analyzeAudioSamples(
   const rv: number[] = [];
   const cv: number[] = [];
   const ch = new Float64Array(12);
+  const frameChroma: Float64Array[] = [];
+  const lowBand: number[] = [];
   const windowed = new Float64Array(win);
 
   for (let s = 0; s <= mono.length - win; s += hop) {
@@ -179,9 +188,16 @@ export function analyzeAudioSamples(
     }
     cv.push(weightedSum / (magSum + 1e-12));
 
+    let low = 0;
+    for (let k = 0; k < mag.length && freqs[k] < LOW_BAND_HZ; k++) low += mag[k];
+    lowBand.push(low);
+
+    const fc = new Float64Array(12);
     for (let m = 0; m < maskIndices.length; m++) {
-      ch[pitchClasses[m]] += mag[maskIndices[m]];
+      fc[pitchClasses[m]] += mag[maskIndices[m]];
     }
+    for (let p = 0; p < 12; p++) ch[p] += fc[p];
+    frameChroma.push(fc);
   }
 
   const maxR = rv.length > 0 ? Math.max(...rv) : 0;
@@ -237,6 +253,22 @@ export function analyzeAudioSamples(
   const totalSecDur = secs.reduce((acc, s) => acc + s.duration_sec, 0);
   const err = roundTo(Math.abs(dur - totalSecDur) * 1000.0, 4);
 
+  const { detailed, series: detailedSeries } = computeDetailedAnalysis({
+    dur,
+    hopSec: hop / sr,
+    times,
+    energy: rn,
+    brightness: cn,
+    onsetTimes: ons,
+    frameChroma,
+    lowBand,
+    chroma: chn,
+    bpm,
+    sections: secs,
+  });
+  const totalPhraseDur = detailed.phrases.reduce((acc, p) => acc + p.duration_sec, 0);
+  const phraseErr = detailed.phrases.length > 0 ? roundTo(Math.abs(dur - totalPhraseDur) * 1000.0, 4) : 0;
+
   const chroma: Record<string, number> = {};
   NOTES.forEach((note, idx) => {
     chroma[note] = chn[idx];
@@ -255,15 +287,18 @@ export function analyzeAudioSamples(
       chroma,
       sections: secs,
     },
+    detailed,
     integrity: {
-      passed: err <= 1.0,
+      passed: err <= 1.0 && phraseErr <= 1.0,
       error_ms: err,
+      phrase_error_ms: phraseErr,
     },
     series: {
       times,
       rms: rn,
       centroid: cn,
       onset_times: ons,
+      ...detailedSeries,
     },
   };
 }
