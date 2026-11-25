@@ -495,7 +495,9 @@ export default function App() {
     downloadJson(stripSeries(analysis), `${analysis.track.file.replace(/\.[^.]+$/, '')}.analysis.json`);
   };
 
-  const shownError = error ?? (selected?.status === 'error' ? `${selected.file.name}: ${selected.error}` : null);
+  const shownError =
+    [error, selected?.status === 'error' ? `${selected.file.name}: ${selected.error}` : null].filter(Boolean).join(' ') ||
+    null;
   const vm = analysis?.verified_math;
 
   const hasPitch = vm ? Object.values(vm.chroma).some((v) => v > 0) : false;
