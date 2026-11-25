@@ -60,7 +60,7 @@ cp .env.example .env   # then set GEMINI_API_KEY to use song feedback
 npm run dev
 ```
 
-Song feedback needs a Gemini API key from https://aistudio.google.com/apikey. Everything else works without one. Set `GEMINI_MODEL` in `.env` to use a different Gemini model.
+Song feedback needs a Gemini API key from https://aistudio.google.com/apikey. Everything else works without one. Set `GEMINI_MODEL` in `.env` to use a different Gemini model. If that model is busy, the app tries `GEMINI_FALLBACK_MODELS` in order (comma-separated, default `gemini-3.6-flash,gemini-3.5-flash`).
 
 Then open http://localhost:3000.
 

@@ -1,7 +1,8 @@
-import { createPartFromBase64, createPartFromUri, GoogleGenAI } from '@google/genai';
+import { ApiError, createPartFromBase64, createPartFromUri, GoogleGenAI } from '@google/genai';
 import type { MathEngineReport } from '../engine/mathEngine.ts';
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+export const DEFAULT_GEMINI_FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash'];
 const INLINE_AUDIO_LIMIT_BYTES = 14 * 1024 * 1024;
 
 export interface SongFeedback {
@@ -23,6 +24,9 @@ export interface SongFeedbackResult {
 }
 
 export class AiNotConfiguredError extends Error {}
+export class AiBusyError extends Error {}
+
+const isBusy = (err: unknown) => err instanceof ApiError && (err.status === 429 || err.status === 503);
 
 const str = { type: 'string' };
 const strList = { type: 'array', items: str };
@@ -142,23 +146,33 @@ export async function generateSongFeedback(params: {
   if (!apiKey) {
     throw new AiNotConfiguredError('Song feedback needs a Gemini API key. Add GEMINI_API_KEY to your .env file and restart.');
   }
-  const model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-  const ai = new GoogleGenAI({ apiKey });
+  const fallbacks = process.env.GEMINI_FALLBACK_MODELS
+    ? process.env.GEMINI_FALLBACK_MODELS.split(',').map((m) => m.trim()).filter(Boolean)
+    : DEFAULT_GEMINI_FALLBACK_MODELS;
+  const models = [...new Set([process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL, ...fallbacks])];
+  const ai = new GoogleGenAI({ apiKey, httpOptions: { timeout: 180_000, retryOptions: { attempts: 2 } } });
+  const parts = [await audioPart(ai, params.wav), { text: buildPrompt(params.fileName, params.report, params.lyrics ?? '') }];
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: [
-      {
-        role: 'user',
-        parts: [await audioPart(ai, params.wav), { text: buildPrompt(params.fileName, params.report, params.lyrics ?? '') }],
-      },
-    ],
-    config: {
-      responseMimeType: 'application/json',
-      responseJsonSchema: FEEDBACK_SCHEMA,
-      temperature: 0.4,
-    },
-  });
+  let model = models[0];
+  let response;
+  for (const candidate of models) {
+    model = candidate;
+    try {
+      response = await ai.models.generateContent({
+        model,
+        contents: [{ role: 'user', parts }],
+        config: {
+          responseMimeType: 'application/json',
+          responseJsonSchema: FEEDBACK_SCHEMA,
+          temperature: 0.4,
+        },
+      });
+      break;
+    } catch (err) {
+      if (!isBusy(err)) throw err;
+    }
+  }
+  if (!response) throw new AiBusyError('Gemini is busy right now. Try again in a minute.');
 
   const text = response.text;
   if (!text) throw new Error('Gemini returned an empty response.');

@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AiNotConfiguredError, generateSongFeedback } from './src/ai/aiProvider.ts';
+import { AiBusyError, AiNotConfiguredError, generateSongFeedback } from './src/ai/aiProvider.ts';
 import { analyzeAudioSamples } from './src/engine/mathEngine.ts';
 import { resampleTo22050 } from './src/engine/visualizerMath.ts';
 import { encodeMonoWav, parseWavBuffer } from './src/engine/wavParser.ts';
@@ -174,7 +174,7 @@ async function startServer() {
       res.json(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Song feedback failed.';
-      res.status(err instanceof AiNotConfiguredError ? 503 : 502).json({ error: message });
+      res.status(err instanceof AiNotConfiguredError || err instanceof AiBusyError ? 503 : 502).json({ error: message });
     }
   });
 
