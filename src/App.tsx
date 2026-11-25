@@ -321,6 +321,7 @@ export default function App() {
   const [feedback, setFeedback] = useState<SongFeedbackResult | null>(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const feedbackRequest = useRef(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -349,8 +350,10 @@ export default function App() {
       setAudioUrl(URL.createObjectURL(file));
       setAnalysis(result);
       setWavBody(body);
+      feedbackRequest.current += 1;
       setFeedback(null);
       setFeedbackError(null);
+      setFeedbackLoading(false);
       setCurrentTime(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not analyze this file.');
@@ -392,14 +395,18 @@ export default function App() {
 
   const getFeedback = async () => {
     if (!analysis || !wavBody) return;
+    const request = ++feedbackRequest.current;
     setFeedbackLoading(true);
     setFeedbackError(null);
     try {
-      setFeedback(await requestFeedback(wavBody, analysis.track.file, lyrics));
+      const result = await requestFeedback(wavBody, analysis.track.file, lyrics);
+      if (request === feedbackRequest.current) setFeedback(result);
     } catch (err) {
-      setFeedbackError(err instanceof Error ? err.message : 'Could not get feedback.');
+      if (request === feedbackRequest.current) {
+        setFeedbackError(err instanceof Error ? err.message : 'Could not get feedback.');
+      }
     } finally {
-      setFeedbackLoading(false);
+      if (request === feedbackRequest.current) setFeedbackLoading(false);
     }
   };
 
