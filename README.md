@@ -74,7 +74,7 @@ Artwork and music are not included in this repository.
 
 ## Getting started
 
-You need Node.js 20 or newer for the web app, and Python 3 for the Python tools. The visualizer also needs ffmpeg.
+You need Node.js 20.12 or newer for the web app, and Python 3 for the Python tools. The visualizer also needs ffmpeg.
 
 ```
 python3 -m venv .venv
