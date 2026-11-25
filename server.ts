@@ -1,8 +1,16 @@
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AiBusyError, AiNotConfiguredError, generateSongFeedback } from './src/ai/aiProvider.ts';
 import { analyzeAudioSamples } from './src/engine/mathEngine.ts';
+import { resampleTo22050 } from './src/engine/visualizerMath.ts';
 import { encodeMonoWav, parseWavBuffer } from './src/engine/wavParser.ts';
+
+try {
+  process.loadEnvFile();
+} catch {
+  // No .env file; rely on the shell environment.
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -84,6 +92,7 @@ async function startServer() {
   const app = express();
 
   app.use('/api/analyze', express.raw({ type: ['audio/*', 'application/octet-stream'], limit: '80mb' }));
+  app.use('/api/feedback', express.json({ limit: '150mb' }));
   app.use(express.json({ limit: '50mb' }));
 
   app.get('/api/health', (_req, res) => {
@@ -136,6 +145,36 @@ async function startServer() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Audio analysis failed.';
       res.status(400).json({ error: message });
+    }
+  });
+
+  app.post('/api/feedback', async (req, res) => {
+    const { audio, fileName, lyrics } = (req.body ?? {}) as { audio?: unknown; fileName?: unknown; lyrics?: unknown };
+    if (typeof audio !== 'string' || audio.length === 0) {
+      res.status(400).json({ error: 'Send JSON { audio: <base64 WAV>, fileName, lyrics? }.' });
+      return;
+    }
+    const name = typeof fileName === 'string' && fileName ? fileName : 'track.wav';
+    let parsed: ReturnType<typeof parseWavBuffer>;
+    try {
+      parsed = parseWavBuffer(new Uint8Array(Buffer.from(audio, 'base64')).buffer);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Could not read the audio.' });
+      return;
+    }
+    try {
+      const { series: _series, ...report } = analyzeAudioSamples(parsed.mono, parsed.sampleRate, name);
+      const wav = new Uint8Array(encodeMonoWav(resampleTo22050(parsed.mono, parsed.sampleRate), 22050));
+      const result = await generateSongFeedback({
+        wav,
+        fileName: name,
+        report,
+        lyrics: typeof lyrics === 'string' ? lyrics : '',
+      });
+      res.json(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Song feedback failed.';
+      res.status(err instanceof AiNotConfiguredError || err instanceof AiBusyError ? 503 : 502).json({ error: message });
     }
   });
 

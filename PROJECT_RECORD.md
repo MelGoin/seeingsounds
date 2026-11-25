@@ -9,14 +9,14 @@ An interactive, ethical music-to-visual analysis and design studio ("CapCut-styl
 - Zero AI image generation; visuals are driven by deterministic audio math + human-editable rules.
 - Mathematical accuracy first: all beat grids, durations, and energy/pitch numbers must add up.
 - Cognitive & music-theoretic grounding (GTTM phrasing, Implication-Realization tension/release, semiotic segmentation, modular pitch math).
-- Gemini API (`gemini-3.8-flash` via `google-genai` SDK) acts as core reasoning/structuring engine, isolated behind `ai_provider.py`.
+- Gemini API (`gemini-3.8-flash` via `google-genai` SDK) acts as core reasoning/structuring engine, isolated behind `src/ai/aiProvider.ts`.
 - Target V1 environment: Local web app running on 2017 Intel MacBook Pro; $300 Google Cloud Credits; beginner-friendly, step-by-step workflow.
 
 ## Architecture Decisions
 - **Frontend:** React + TypeScript + Tailwind CSS (Vite), Web Audio API for decoding and playback, SVG for charts. Lives in `src/`.
 - **Backend:** Node + Express (`server.ts`) running the TypeScript port of the math engine (`src/engine/`). Deterministic, CPU only, no cloud cost.
 - **Python tools:** `math_engine.py` (reference engine, same math as the TypeScript port) and the offline ZEAL cover visualizer (`visualizer/`).
-- **AI Layer:** Planned, not yet wired in. `google-genai` SDK calling `gemini-3.8-flash` with JSON Schema Structured Outputs.
+- **AI Layer:** `@google/genai` SDK in `src/ai/aiProvider.ts`, calling `gemini-3.8-flash` (override with `GEMINI_MODEL`) with JSON Schema structured outputs. It powers song feedback (`POST /api/feedback`): the track audio, the measured analysis, and optional lyrics go in, and structured themes, story, mood, and suggestions come out.
 - **Storage:** Local JSON files (`./projects/`) + `.env` for `GEMINI_API_KEY`.
 
 ## Completed Milestones
@@ -28,5 +28,7 @@ An interactive, ethical music-to-visual analysis and design studio ("CapCut-styl
 
 - [x] Deeper analysis: key estimate, beat grid, 4-bar phrases with build/release shapes, tension curve, and per-section detail, shown in the web app.
 
+- [x] Song feedback: Gemini explains what the song is about (themes, story, point of view, mood, key lines) and gives optional suggestions, grounded in the measured analysis.
+
 ## Next Concrete Task
-- **Milestone 3:** Song meaning feedback (themes, story, mood, lyrics) through the AI layer.
+- Editable rules that map sound to color, motion, and type.

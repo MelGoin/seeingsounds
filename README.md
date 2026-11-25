@@ -48,6 +48,7 @@ A browser app for the math engine. Drop in a track, or use the built-in 92 BPM s
 - Key, beat grid, how tightly the hits land on the beat, and the tension peak
 - An energy, brightness, and tension timeline with beat, phrase, and onset markers and the four sections. Click to jump playback there.
 - Phrase cards (build, release, arc, steady) and per-section detail
+- Song feedback: what the song is about (themes, story, point of view, mood, key lines), how the sound supports it, what works, and ideas to consider. Gemini listens to the track and gets the measured numbers as context. You can paste lyrics for a more accurate read. The feedback is labeled as an interpretation, and it is kept separate from the measurements.
 - The 12-note chroma profile
 - A downloadable JSON report
 
@@ -55,8 +56,11 @@ WAV files go straight to the server. Other formats (MP3, FLAC, and so on) are de
 
 ```
 npm install
+cp .env.example .env   # then set GEMINI_API_KEY to use song feedback
 npm run dev
 ```
+
+Song feedback needs a Gemini API key from https://aistudio.google.com/apikey. Everything else works without one. Set `GEMINI_MODEL` in `.env` to use a different Gemini model. If that model is busy, the app tries `GEMINI_FALLBACK_MODELS` in order (comma-separated, default `gemini-3.6-flash,gemini-3.1-flash-lite`).
 
 Then open http://localhost:3000.
 
@@ -70,7 +74,7 @@ Artwork and music are not included in this repository.
 
 ## Getting started
 
-You need Node.js 20 or newer for the web app, and Python 3 for the Python tools. The visualizer also needs ffmpeg.
+You need Node.js 20.12 or newer for the web app, and Python 3 for the Python tools. The visualizer also needs ffmpeg.
 
 ```
 python3 -m venv .venv

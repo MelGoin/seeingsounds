@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.12"
+  },
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
@@ -10,6 +13,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@google/genai": "^3.6.1",
     "express": "^5.1.0",
     "lucide-react": "^0.511.0",
     "react": "^19.1.0",
