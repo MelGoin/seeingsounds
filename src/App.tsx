@@ -219,12 +219,18 @@ function MixtapePanel({
   onClear: () => void;
 }) {
   const reports = tracks.flatMap((t) => (t.analysis ? [stripSeries(t.analysis)] : []));
+  const pending = tracks.some((t) => t.status === 'queued' || t.status === 'analyzing');
   const summary = summarizeMixtape(reports);
   const name = title.trim() || 'Untitled mixtape';
 
   const download = () => {
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'mixtape';
-    downloadJson(buildMixtapeReport(name, reports), `${slug}.mixtape.json`);
+    const entries = tracks.map((t, i) =>
+      t.analysis
+        ? { index: i + 1, report: stripSeries(t.analysis) }
+        : { index: i + 1, file: t.file.name, error: t.error ?? 'Not measured.' },
+    );
+    downloadJson(buildMixtapeReport(name, entries), `${slug}.mixtape.json`);
   };
 
   return (
@@ -241,7 +247,8 @@ function MixtapePanel({
           <button
             type="button"
             onClick={download}
-            disabled={reports.length === 0}
+            disabled={pending || reports.length === 0}
+            title={pending ? 'Available once every track is measured' : undefined}
             className="flex items-center gap-2 rounded-lg border border-[#2a261f] px-3 py-2 text-sm hover:bg-[#1e1a12] disabled:opacity-50"
           >
             <Download className="h-4 w-4" /> Download mixtape report (JSON)

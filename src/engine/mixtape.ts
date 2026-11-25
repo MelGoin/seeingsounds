@@ -15,7 +15,12 @@ export interface MixtapeReport {
   mixtape: string;
   summary: MixtapeSummary;
   tracks: (MathEngineReport & { index: number })[];
+  failed: { index: number; file: string; error: string }[];
 }
+
+export type MixtapeEntry =
+  | { index: number; report: MathEngineReport }
+  | { index: number; file: string; error: string };
 
 function round(v: number, decimals: number): number {
   const factor = Math.pow(10, decimals);
@@ -71,10 +76,12 @@ export function summarizeMixtape(reports: MathEngineReport[]): MixtapeSummary {
   };
 }
 
-export function buildMixtapeReport(title: string, reports: MathEngineReport[]): MixtapeReport {
-  return {
-    mixtape: title,
-    summary: summarizeMixtape(reports),
-    tracks: reports.map((r, i) => ({ index: i + 1, ...r })),
-  };
+export function buildMixtapeReport(title: string, entries: MixtapeEntry[]): MixtapeReport {
+  const tracks: MixtapeReport['tracks'] = [];
+  const failed: MixtapeReport['failed'] = [];
+  for (const e of entries) {
+    if ('report' in e) tracks.push({ index: e.index, ...e.report });
+    else failed.push(e);
+  }
+  return { mixtape: title, summary: summarizeMixtape(tracks), tracks, failed };
 }
