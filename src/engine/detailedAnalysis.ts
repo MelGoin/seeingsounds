@@ -146,6 +146,9 @@ export function estimateKey(chroma: number[]): KeyEstimate | null {
   };
 }
 
+// Ignore float noise so TS and Python pick the same phase on near-ties.
+const PHASE_TIE_EPS = 1e-9;
+
 function frameIndex(t: number, hopSec: number, n: number): number {
   return Math.min(n - 1, Math.max(0, Math.round(t / hopSec)));
 }
@@ -162,7 +165,7 @@ function buildBeatGrid(input: DetailedInput) {
     const p = k / 1000;
     let cost = 0;
     for (const t of onsetTimes) cost += circularDistance(t, p, beatSec);
-    if (cost < bestCost) {
+    if (cost < bestCost - PHASE_TIE_EPS) {
       bestCost = cost;
       phase = p;
     }

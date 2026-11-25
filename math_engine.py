@@ -23,6 +23,7 @@ def estimate_key(chn):
     order=sorted(range(len(scores)),key=lambda i:(-scores[i][2],i))
     b,s=scores[order[0]],scores[order[1]]
     return {"tonic":NOTES[b[0]],"mode":b[1],"label":f"{NOTES[b[0]]} {b[1]}","confidence":round(b[2],4),"runner_up":f"{NOTES[s[0]]} {s[1]}"}
+PHASE_TIE_EPS=1e-9
 def beat_grid(bpm,ons,dur,low,hop_sec):
     if bpm<=0 or len(ons)<2 or len(low)==0: return None
     beat=60.0/bpm
@@ -30,7 +31,7 @@ def beat_grid(bpm,ons,dur,low,hop_sec):
     for k in range(max(1,int(np.floor(beat*1000)))):
         p=k/1000.0
         cost=sum(_circ(t,p,beat) for t in ons)
-        if cost<best: best,phase=cost,p
+        if cost<best-PHASE_TIE_EPS: best,phase=cost,p
     beats,k=[],0
     while phase+k*beat<dur:
         beats.append(round(phase+k*beat,4)); k+=1
