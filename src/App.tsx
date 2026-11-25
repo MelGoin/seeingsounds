@@ -351,6 +351,7 @@ export default function App() {
       setAnalysis(result);
       setWavBody(body);
       feedbackRequest.current += 1;
+      setLyrics('');
       setFeedback(null);
       setFeedbackError(null);
       setFeedbackLoading(false);
