@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ChangeEvent, DragEvent, MouseEvent } from 'react';
+import type { ChangeEvent, DragEvent, MouseEvent, ReactNode } from 'react';
 import {
   AudioLines,
   CircleCheck,
@@ -9,6 +9,7 @@ import {
   Minus,
   Mountain,
   Music,
+  Sparkles,
   TrendingDown,
   TrendingUp,
   Upload,
@@ -17,6 +18,7 @@ import type { LucideIcon } from 'lucide-react';
 import { NOTES } from './engine/mathEngine.ts';
 import type { MathEngineAnalysis } from './engine/mathEngine.ts';
 import type { PhraseShape } from './engine/detailedAnalysis.ts';
+import type { SongFeedbackResult } from './ai/aiProvider.ts';
 import { encodeMonoWav } from './engine/wavParser.ts';
 
 const SECTION_COLORS = ['#e8a84c', '#c7643a', '#8f9a5b', '#5e8ca8'];
@@ -70,6 +72,117 @@ async function requestAnalysis(body: ArrayBuffer, fileName: string): Promise<Mat
   }
   if (!res.ok) throw new Error(('error' in json && json.error) || 'Analysis failed.');
   return json as MathEngineAnalysis;
+}
+
+function toBase64(body: ArrayBuffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+    reader.onerror = () => reject(new Error('Could not read the audio for feedback.'));
+    reader.readAsDataURL(new Blob([body], { type: 'audio/wav' }));
+  });
+}
+
+async function requestFeedback(body: ArrayBuffer, fileName: string, lyrics: string): Promise<SongFeedbackResult> {
+  const res = await fetch('/api/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audio: await toBase64(body), fileName, lyrics }),
+  });
+  if (res.status === 413) throw new Error('This file is too large to send for feedback.');
+  const text = await res.text();
+  let json: { error?: string } | SongFeedbackResult;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Feedback failed (HTTP ${res.status}).`);
+  }
+  if (!res.ok) throw new Error(('error' in json && json.error) || 'Feedback failed.');
+  return json as SongFeedbackResult;
+}
+
+function FeedbackBlock({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-[#2a261f] bg-[#16140f] p-4">
+      <div className="mb-2 text-xs uppercase tracking-widest text-[#9c8f78]">{title}</div>
+      <div className="space-y-2 text-sm leading-relaxed">{children}</div>
+    </div>
+  );
+}
+
+function FeedbackView({ result }: { result: SongFeedbackResult }) {
+  const f = result.feedback;
+  const source = {
+    provided: 'Based on the lyrics you provided',
+    heard: 'Based on the vocal Gemini heard',
+    instrumental: 'Treated as an instrumental',
+  }[f.lyrics_source];
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-[#3a3020] bg-[#1e1a12] p-4">
+        <div className="text-base leading-relaxed">{f.summary}</div>
+        <div className="mt-2 text-xs text-[#9c8f78]">
+          {source} · written by {result.model}. This is an interpretation, not a measurement.
+        </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <FeedbackBlock title="Themes">
+          {f.themes.map((t) => (
+            <div key={t.theme}>
+              <div className="font-medium text-[#e8a84c]">{t.theme}</div>
+              <div className="text-[#c9bda6]">{t.evidence}</div>
+            </div>
+          ))}
+        </FeedbackBlock>
+        <FeedbackBlock title="Mood">
+          <div className="flex flex-wrap gap-2">
+            {f.mood.words.map((w) => (
+              <span key={w} className="rounded-full border border-[#2a261f] px-2 py-0.5 text-xs">
+                {w}
+              </span>
+            ))}
+          </div>
+          <p className="text-[#c9bda6]">{f.mood.description}</p>
+        </FeedbackBlock>
+        <FeedbackBlock title="Story">
+          <p>{f.story}</p>
+        </FeedbackBlock>
+        <FeedbackBlock title="Point of view">
+          <p>{f.perspective}</p>
+        </FeedbackBlock>
+      </div>
+      {f.lyric_highlights.length > 0 && (
+        <FeedbackBlock title="Key lines">
+          {f.lyric_highlights.map((h) => (
+            <div key={h.line} className="border-l-2 border-[#e8a84c] pl-3">
+              <div className="italic">“{h.line}”{h.timestamp && <span className="ml-2 text-xs not-italic text-[#9c8f78]">{h.timestamp}</span>}</div>
+              <div className="text-[#c9bda6]">{h.why}</div>
+            </div>
+          ))}
+        </FeedbackBlock>
+      )}
+      <FeedbackBlock title="How the sound carries the message">
+        <p>{f.sound_and_meaning}</p>
+      </FeedbackBlock>
+      <div className="grid gap-4 md:grid-cols-2">
+        <FeedbackBlock title="What works">
+          <ul className="list-disc space-y-1 pl-5">
+            {f.strengths.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+        </FeedbackBlock>
+        <FeedbackBlock title="Ideas to consider">
+          <ul className="list-disc space-y-1 pl-5">
+            {f.suggestions.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+          <div className="text-xs text-[#9c8f78]">Suggestions only. The creative calls are yours.</div>
+        </FeedbackBlock>
+      </div>
+    </div>
+  );
 }
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -203,6 +316,11 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [wavBody, setWavBody] = useState<ArrayBuffer | null>(null);
+  const [lyrics, setLyrics] = useState('');
+  const [feedback, setFeedback] = useState<SongFeedbackResult | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -230,6 +348,9 @@ export default function App() {
       const result = await requestAnalysis(body, file.name);
       setAudioUrl(URL.createObjectURL(file));
       setAnalysis(result);
+      setWavBody(body);
+      setFeedback(null);
+      setFeedbackError(null);
       setCurrentTime(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not analyze this file.');
@@ -269,10 +390,24 @@ export default function App() {
     setCurrentTime(t);
   };
 
+  const getFeedback = async () => {
+    if (!analysis || !wavBody) return;
+    setFeedbackLoading(true);
+    setFeedbackError(null);
+    try {
+      setFeedback(await requestFeedback(wavBody, analysis.track.file, lyrics));
+    } catch (err) {
+      setFeedbackError(err instanceof Error ? err.message : 'Could not get feedback.');
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
   const downloadReport = () => {
     if (!analysis) return;
     const { series: _series, ...report } = analysis;
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const output = feedback ? { ...report, song_feedback: feedback } : report;
+    const blob = new Blob([JSON.stringify(output, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -431,6 +566,36 @@ export default function App() {
               />
             </div>
           )}
+
+          <section>
+            <h2 className="font-semibold">What the song is about</h2>
+            <p className="mb-2 text-xs text-[#9c8f78]">
+              Gemini listens to the track and writes feedback on its themes, story, and mood, using the measurements above. Paste
+              your lyrics for a more accurate read.
+            </p>
+            <div className="space-y-3">
+              <textarea
+                value={lyrics}
+                onChange={(e) => setLyrics(e.target.value)}
+                placeholder="Lyrics (optional)"
+                rows={4}
+                className="w-full rounded-xl border border-[#2a261f] bg-[#16140f] p-3 text-sm placeholder:text-[#6b6150] focus:border-[#e8a84c] focus:outline-none"
+              />
+              <button
+                type="button"
+                disabled={feedbackLoading || !wavBody}
+                onClick={() => void getFeedback()}
+                className="flex items-center gap-2 rounded-lg bg-[#e8a84c] px-4 py-2 font-medium text-[#0e0d0b] hover:bg-[#f0b965] disabled:opacity-50"
+              >
+                {feedbackLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {feedbackLoading ? 'Listening...' : feedback ? 'Get feedback again' : 'Get song feedback'}
+              </button>
+              {feedbackError && (
+                <div className="rounded-lg border border-[#7a2e22] bg-[#2a1410] px-4 py-3 text-sm text-[#f3b3a6]">{feedbackError}</div>
+              )}
+              {feedback && <FeedbackView result={feedback} />}
+            </div>
+          </section>
 
           <section>
             <h2 className="mb-2 font-semibold">Pitch classes (chroma)</h2>
