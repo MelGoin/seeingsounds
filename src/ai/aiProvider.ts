@@ -2,7 +2,7 @@ import { ApiError, createPartFromBase64, createPartFromUri, GoogleGenAI } from '
 import type { MathEngineReport } from '../engine/mathEngine.ts';
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
-export const DEFAULT_GEMINI_FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash'];
+export const DEFAULT_GEMINI_FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-3.1-flash-lite'];
 const INLINE_AUDIO_LIMIT_BYTES = 14 * 1024 * 1024;
 
 export interface SongFeedback {
