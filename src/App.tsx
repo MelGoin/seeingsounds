@@ -208,7 +208,6 @@ function MixtapePanel({
   onTitleChange,
   onSelect,
   onRemove,
-  onClear,
 }: {
   tracks: TapeTrack[];
   selectedId: number | null;
@@ -216,7 +215,6 @@ function MixtapePanel({
   onTitleChange: (title: string) => void;
   onSelect: (id: number) => void;
   onRemove: (id: number) => void;
-  onClear: () => void;
 }) {
   const reports = tracks.flatMap((t) => (t.analysis ? [stripSeries(t.analysis)] : []));
   const pending = tracks.some((t) => t.status === 'queued' || t.status === 'analyzing');
@@ -252,13 +250,6 @@ function MixtapePanel({
             className="flex items-center gap-2 rounded-lg border border-[#2a261f] px-3 py-2 text-sm hover:bg-[#1e1a12] disabled:opacity-50"
           >
             <Download className="h-4 w-4" /> Download mixtape report (JSON)
-          </button>
-          <button
-            type="button"
-            onClick={onClear}
-            className="rounded-lg border border-[#2a261f] px-3 py-2 text-sm hover:bg-[#1e1a12]"
-          >
-            Clear
           </button>
         </div>
       </div>
@@ -548,6 +539,15 @@ export default function App() {
           >
             <Music className="h-4 w-4" /> Try the sample track
           </button>
+          {tracks.length > 0 && (
+            <button
+              type="button"
+              onClick={clearTracks}
+              className="rounded-lg border border-[#2a261f] px-4 py-2 hover:bg-[#1e1a12]"
+            >
+              Clear
+            </button>
+          )}
         </div>
         <input ref={inputRef} type="file" accept="audio/*,.wav" multiple className="hidden" onChange={onPick} />
       </div>
@@ -564,7 +564,6 @@ export default function App() {
           onTitleChange={setTitle}
           onSelect={setSelectedId}
           onRemove={removeTrack}
-          onClear={clearTracks}
         />
       )}
 
