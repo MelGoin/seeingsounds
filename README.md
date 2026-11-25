@@ -39,6 +39,8 @@ A browser app for the math engine. Drop in a track, or use the built-in 92 BPM s
 - The 12-note chroma profile
 - A downloadable JSON report
 
+Drop in several tracks at once (for example, all of ZEAL) to get mixtape mode: a tracklist with each track's tempo, pitch, onsets, and integrity, a summary across the tape (runtime, tempo range, most common pitch, length-weighted chroma), and one combined `.mixtape.json` report. Click a track to see its full analysis. Tracks are sorted by file name, so number them `01`, `02`, and so on to keep the running order.
+
 WAV files go straight to the server. Other formats (MP3, FLAC, and so on) are decoded in your browser first.
 
 ```
