@@ -33,7 +33,7 @@ def beat_grid(bpm,ons,dur,low,hop_sec):
         cost=sum(_circ(t,p,beat) for t in ons)
         if cost<best-PHASE_TIE_EPS: best,phase=cost,p
     beats,k=[],0
-    while phase+k*beat<dur:
+    while round(phase+k*beat,4)<dur:
         beats.append(round(phase+k*beat,4)); k+=1
     fi=lambda t:min(len(low)-1,max(0,int(round(t/hop_sec))))
     acc=[_mean([low[fi(beats[k])] for k in range(o,len(beats),BEATS_PER_BAR)]) for o in range(BEATS_PER_BAR)]

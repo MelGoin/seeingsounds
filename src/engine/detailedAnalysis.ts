@@ -172,7 +172,11 @@ function buildBeatGrid(input: DetailedInput) {
   }
 
   const beatTimes: number[] = [];
-  for (let k = 0; phase + k * beatSec < dur; k++) beatTimes.push(roundTo(phase + k * beatSec, 4));
+  for (let k = 0; ; k++) {
+    const t = roundTo(phase + k * beatSec, 4);
+    if (t >= dur) break;
+    beatTimes.push(t);
+  }
 
   const accentScores: number[] = [];
   for (let o = 0; o < BEATS_PER_BAR; o++) {
