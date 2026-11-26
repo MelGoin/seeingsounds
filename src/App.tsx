@@ -18,6 +18,8 @@ import { NOTES } from './engine/mathEngine.ts';
 import type { MathEngineAnalysis } from './engine/mathEngine.ts';
 import type { PhraseShape } from './engine/detailedAnalysis.ts';
 import { encodeMonoWav } from './engine/wavParser.ts';
+import { generateDeterministicTestTrack } from './engine/sampleTrack.ts';
+import type { AnalysisRequest, AnalysisResponse } from './engine/analysisWorker.ts';
 
 const SECTION_COLORS = ['#e8a84c', '#c7643a', '#8f9a5b', '#5e8ca8'];
 const TENSION_COLOR = '#e2725b';
@@ -54,22 +56,37 @@ async function toWavBody(file: File): Promise<ArrayBuffer> {
   }
 }
 
-async function requestAnalysis(body: ArrayBuffer, fileName: string): Promise<MathEngineAnalysis> {
-  const res = await fetch(`/api/analyze?include_series=true&filename=${encodeURIComponent(fileName)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'audio/wav' },
-    body,
+let analysisWorker: Worker | null = null;
+let nextRequestId = 0;
+
+// Analysis runs locally in a Web Worker, so the app works offline and inside
+// Tauri (desktop and iOS), where there is no Node server.
+function requestAnalysis(wav: ArrayBuffer, fileName: string, hopMs = 50): Promise<MathEngineAnalysis> {
+  analysisWorker ??= new Worker(new URL('./engine/analysisWorker.ts', import.meta.url), { type: 'module' });
+  const worker = analysisWorker;
+  const id = ++nextRequestId;
+  return new Promise((resolve, reject) => {
+    const onMessage = (event: MessageEvent<AnalysisResponse>) => {
+      if (event.data.id !== id) return;
+      cleanup();
+      if (event.data.ok) resolve(event.data.analysis);
+      else reject(new Error(event.data.error));
+    };
+    const onError = (event: ErrorEvent) => {
+      cleanup();
+      analysisWorker = null;
+      worker.terminate();
+      reject(new Error(event.message || 'Analysis failed.'));
+    };
+    const cleanup = () => {
+      worker.removeEventListener('message', onMessage);
+      worker.removeEventListener('error', onError);
+    };
+    worker.addEventListener('message', onMessage);
+    worker.addEventListener('error', onError);
+    const request: AnalysisRequest = { id, wav, fileName, hopMs };
+    worker.postMessage(request, [wav]);
   });
-  if (res.status === 413) throw new Error('This file is too large to analyze (limit is 80 MB of WAV audio).');
-  const text = await res.text();
-  let json: { error?: string } | MathEngineAnalysis;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`Analysis failed (HTTP ${res.status}).`);
-  }
-  if (!res.ok) throw new Error(('error' in json && json.error) || 'Analysis failed.');
-  return json as MathEngineAnalysis;
 }
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -242,9 +259,9 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/sample-track');
-      const blob = await res.blob();
-      await analyzeFile(new File([blob], 'zeal_92bpm_fsharp_minor.wav', { type: 'audio/wav' }));
+      const { mono, sr } = generateDeterministicTestTrack();
+      const wav = encodeMonoWav(mono, sr);
+      await analyzeFile(new File([wav], 'zeal_92bpm_fsharp_minor.wav', { type: 'audio/wav' }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load the sample track.');
       setLoading(false);
