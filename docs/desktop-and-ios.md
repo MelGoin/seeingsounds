@@ -20,7 +20,7 @@ Then, per platform:
 | Platform | Also install |
 |---|---|
 | macOS (desktop) | Xcode from the Mac App Store. Open it once to accept the license. |
-| iOS | A Mac with the full Xcode app, [CocoaPods](https://cocoapods.org) (`brew install cocoapods`), and the iOS Rust targets below. An Apple Developer account is needed for TestFlight and the App Store. |
+| iOS | A Mac with the full Xcode app, [CocoaPods](https://cocoapods.org) (`brew install cocoapods`), and the iOS Rust targets below. A free Apple ID is enough to run the app on your own iPhone (it must be reinstalled every 7 days). A paid Apple Developer account is needed for TestFlight and the App Store. |
 | Windows | [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with "Desktop development with C++". WebView2 ships with Windows 11. |
 | Linux (Debian/Ubuntu) | `sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev` |
 
@@ -90,8 +90,12 @@ Then upload the archive from Xcode (Window > Organizer) or with Transporter.
   `app.seeingsounds.desktop`. Change it to a reverse domain you own (for example
   `com.yourcompany.seeingsounds`) before the first App Store upload. It cannot
   be changed after release.
-- **Icons.** `src-tauri/icons/` holds Tauri's placeholder icons. Generate the
-  full set from one 1024x1024 PNG with `npm run tauri icon path/to/icon.png`.
+- **Icons.** The app icon is the drip "SS" from the Seeing Sounds logo. Its
+  1024x1024 source is `app-icon.png` at the repository root, and
+  `src-tauri/icons/` holds the sizes made from it. After `tauri ios init`, or
+  after changing `app-icon.png`, regenerate them so Xcode gets the iOS set too:
+  `npm run tauri icon -- --ios-color "#0e0d0b"`. The colour fills the
+  transparent corners, because iOS icons must be opaque.
 - **Code signing.** macOS builds need a Developer ID certificate and
   notarization to open without warnings on other Macs. Windows builds should be
   signed to avoid SmartScreen warnings. See Tauri's
