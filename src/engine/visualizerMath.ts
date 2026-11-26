@@ -178,3 +178,110 @@ export function computeVisualizerSignals(
 
   return { fps, nf, bass, vox, high, hit, energy, kick, snare };
 }
+
+// ---------------------------------------------------------------------------
+// Visual frames: deterministic color and motion coordinates per frame.
+// Mirrors compute_frames / visual_report in visual_engine.py, which serves
+// /api/visual on the web; this copy runs in the desktop and iOS app.
+// tests/test_api.py checks that the two agree.
+
+export const PALETTE = {
+  red: [252, 1, 20],
+  green: [4, 160, 83],
+  yellow: [250, 200, 20],
+  teal: [1, 169, 158],
+  pink: [252, 4, 113],
+} as const;
+
+const GOLDEN_ANGLE = 2.399963229728653;
+
+export interface VisualFrames {
+  /** Orb centre as fractions of the canvas width and height (0..1). */
+  orb_x: number[];
+  orb_y: number[];
+  /** Orb radius as a fraction of half the canvas's shorter side. */
+  orb_scale: number[];
+  /** Vocal ring, highs sparkle and overall glow, each 0..1. */
+  ring: number[];
+  sparkle: number[];
+  glow: number[];
+  /** Orb color as [r, g, b]. */
+  color: [number, number, number][];
+}
+
+export interface VisualReport {
+  fps: number;
+  nf: number;
+  palette: Record<keyof typeof PALETTE, number[]>;
+  signals: Record<'bass' | 'vox' | 'high' | 'hit' | 'energy' | 'kick' | 'snare', number[]>;
+  frames: VisualFrames;
+}
+
+const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
+const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
+
+export function computeVisualFrames(sig: VisualizerSignals): VisualFrames {
+  const dt = 1 / sig.fps;
+  const kickSpring = new Spring();
+  const shakeX = new Spring(260.0, 9.0);
+  const shakeY = new Spring(260.0, 9.0);
+  const out: VisualFrames = { orb_x: [], orb_y: [], orb_scale: [], ring: [], sparkle: [], glow: [], color: [] };
+  for (let i = 0; i < sig.nf; i++) {
+    const bass = sig.bass[i];
+    const vox = sig.vox[i];
+    const high = sig.high[i];
+    const hit = sig.hit[i];
+    const energy = sig.energy[i];
+    const pulse = kickSpring.step(sig.kick[i] * 6.0, dt);
+    const theta = i * GOLDEN_ANGLE;
+    const s = sig.snare[i] * 4.0;
+    const dx = shakeX.step(s * Math.cos(theta), dt);
+    const dy = shakeY.step(s * Math.sin(theta), dt);
+    out.orb_x.push(0.5 + 0.06 * clamp(dx, -1, 1));
+    out.orb_y.push(0.5 + 0.06 * clamp(dy, -1, 1));
+    out.orb_scale.push(clamp(0.55 + 0.3 * bass + pulse, 0.3, 1.6));
+    out.ring.push(Math.min(1, vox / 1.3));
+    out.sparkle.push(Math.min(1, high / 1.3));
+    out.glow.push(Math.min(1, energy / 1.3));
+    const weights: [readonly number[], number][] = [
+      [PALETTE.green, 0.15],
+      [PALETTE.red, bass],
+      [PALETTE.yellow, hit],
+      [PALETTE.pink, vox],
+      [PALETTE.teal, high],
+    ];
+    let wsum = 0;
+    for (const [, w] of weights) wsum += w;
+    const rgb = [0, 1, 2].map((k) => {
+      let acc = 0;
+      for (const [c, w] of weights) acc += c[k] * w;
+      return Math.floor(acc / wsum + 0.5);
+    }) as [number, number, number];
+    out.color.push(rgb);
+  }
+  return out;
+}
+
+/** Same shape as the /api/visual response. */
+export function computeVisualReport(mono: Float32Array, sampleRate: number, fps = 30): VisualReport {
+  const y = resampleTo22050(mono, sampleRate);
+  const sig = computeVisualizerSignals(y, 0, y.length / 22050, fps);
+  const frames = computeVisualFrames(sig);
+  const sigOut = {} as VisualReport['signals'];
+  for (const k of ['bass', 'vox', 'high', 'hit', 'energy', 'kick', 'snare'] as const) sigOut[k] = Array.from(sig[k], r4);
+  return {
+    fps: sig.fps,
+    nf: sig.nf,
+    palette: { ...PALETTE } as unknown as VisualReport['palette'],
+    signals: sigOut,
+    frames: {
+      ...frames,
+      orb_x: frames.orb_x.map(r4),
+      orb_y: frames.orb_y.map(r4),
+      orb_scale: frames.orb_scale.map(r4),
+      ring: frames.ring.map(r4),
+      sparkle: frames.sparkle.map(r4),
+      glow: frames.glow.map(r4),
+    },
+  };
+}

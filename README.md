@@ -51,7 +51,9 @@ A browser app for the math engine. Drop in a track, or use the built-in 92 BPM s
 - The 12-note chroma profile
 - A downloadable JSON report
 
-All analysis runs inside the app, in a background worker, so nothing is uploaded. WAV files are read directly. Other formats (MP3, FLAC, and so on) are decoded by the browser first. The Node server still offers the same analysis as an HTTP API at `/api/analyze`.
+It also shows a 60 fps visualizer drawn from the track (a pulsing orb, vocal ring, drips and sparkles in the logo's colors) and exports it as a video, up to 1080p at 60 fps with stereo audio, ending on a "Powered by Seeing Sounds / YeahMel" card. Videos can be shared from phones or downloaded.
+
+Uploads can be mono or stereo WAV at 16, 24 or 32-bit, FLAC, MP3 and more, of any length. On the web, the Python server analyzes them; in the desktop and iOS app, or offline, the same engines run on the device.
 
 ```
 npm install
@@ -59,6 +61,10 @@ npm run dev
 ```
 
 Then open http://localhost:3000.
+
+### Web app on Google Cloud Run
+
+The web version runs as one container on Google Cloud Run: a FastAPI server that runs the Python engines and serves the interface, scaling to zero when idle. See [docs/cloud-run.md](docs/cloud-run.md) for deployment, upload limits and costs.
 
 ### Desktop and iOS app
 

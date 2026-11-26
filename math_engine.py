@@ -89,10 +89,28 @@ def section_details(secs,times,rn,cn,tension,ons,fch):
                     "onsets_per_sec":round(n_on/s["duration_sec"],3) if s["duration_sec"]>0 else 0,
                     "dominant_pitch":NOTES[int(np.argmax(ch))] if np.any(ch>0) else ""})
     return out
-def analyze_audio(file_path, hop_ms=50, include_series=False):
-    p=Path(file_path)
-    data,sr=sf.read(str(p),always_2d=True)
-    mono=np.mean(data,axis=1)
+def read_mono(source, block_frames=1<<20):
+    """Read audio as mono float32, downmixing in blocks so long multichannel
+    files never sit in memory at full width. 16-bit PCM is exact in float32."""
+    if isinstance(source,Path): source=str(source)
+    with sf.SoundFile(source) as f:
+        sr,ch,n=f.samplerate,f.channels,f.frames
+        mono=np.empty(n,dtype=np.float32)
+        pos=0
+        while pos<n:
+            block=f.read(min(block_frames,n-pos),dtype="float32",always_2d=True)
+            if not len(block): break
+            mono[pos:pos+len(block)]=block[:,0] if ch==1 else block.mean(axis=1,dtype=np.float64)
+            pos+=len(block)
+    return mono[:pos],sr
+def analyze_audio(source, hop_ms=50, include_series=False, file_name=None):
+    """Analyze a file path, or a file-like object (pass file_name for the report)."""
+    if isinstance(source,(str,Path)):
+        file_name=file_name or Path(source).name
+    mono,sr=read_mono(source)
+    return analyze_samples(mono,sr,file_name,hop_ms,include_series)
+def analyze_samples(mono, sr, file_name=None, hop_ms=50, include_series=False):
+    """Analyze mono samples (any float dtype) at sample rate sr."""
     dur=round(len(mono)/float(sr),6)
     hop=max(1,int(sr*(hop_ms/1000.0)))
     win=hop*2
@@ -104,7 +122,7 @@ def analyze_audio(file_path, hop_ms=50, include_series=False):
     lowmask=freqs<LOW_BAND_HZ
     pc=np.round(69.0+12.0*np.log2(freqs[mask]/440.0)).astype(int)%12
     for s in range(0,len(mono)-win+1,hop):
-        fr=mono[s:s+win]
+        fr=mono[s:s+win].astype(np.float64)
         times.append(round(s/float(sr),4))
         rv.append(float(np.sqrt(np.mean(fr**2))))
         mag=np.abs(np.fft.rfft(fr*w))
@@ -137,7 +155,7 @@ def analyze_audio(file_path, hop_ms=50, include_series=False):
               "sections":section_details(secs,times,rn,cn,tension,ons,fch),
               "tension":{"mean":round(_mean(tension),4),"peak_sec":times[int(np.argmax(tension))] if tension else 0,
                          "low_sec":times[int(np.argmin(tension))] if tension else 0}}
-    out={"track":{"file":p.name,"sr":sr,"duration_sec":dur},"verified_math":{"bpm":bpm,"onsets":len(ons),"dominant_pitch":NOTES[int(np.argmax(chn))],"chroma":dict(zip(NOTES,chn)),"sections":secs},
+    out={"track":{"file":file_name or "audio","sr":sr,"duration_sec":dur},"verified_math":{"bpm":bpm,"onsets":len(ons),"dominant_pitch":NOTES[int(np.argmax(chn))],"chroma":dict(zip(NOTES,chn)),"sections":secs},
          "detailed":detailed,"integrity":{"passed":err<=1.0 and perr<=1.0,"error_ms":err,"phrase_error_ms":perr}}
     if include_series:
         out["series"]={"times":times,"rms":rn,"centroid":cn,"onset_times":ons,"beat_times":bg[1] if bg else [],"downbeat_times":bg[2] if bg else [],"tension":tension}

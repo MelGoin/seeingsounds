@@ -106,8 +106,10 @@ Then upload the archive from Xcode (Window > Organizer) or with Transporter.
 | Piece | Where | Used by |
 |---|---|---|
 | React front end | `src/` | Web, desktop, iOS |
-| Math engine | `src/engine/` | Run in the app by `analysisWorker.ts`; also by `server.ts` |
+| Math and visual engines (TypeScript) | `src/engine/` | On the device, through `analysisWorker.ts`: desktop, iOS, and the web when offline |
+| Math and visual engines (Python) | `math_engine.py`, `visual_engine.py`, `api/` | The Cloud Run web server; see [cloud-run.md](cloud-run.md) |
+| Visualizer and video export | `src/visualizer/` | Web, desktop, iOS |
 | Sample track generator | `src/engine/sampleTrack.ts` | The app's "Try the sample track" button and `/api/sample-track` |
 | Native shell | `src-tauri/` | Desktop and iOS |
 | Node server | `server.ts` | `npm run dev` and the HTTP API only; not shipped in the apps |
-| Python tools | `math_engine.py`, `visualizer/` | Separate command-line tools; not part of the apps |
+| ZEAL cover visualizer | `visualizer/` | Separate command-line tool; not part of the apps |

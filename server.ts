@@ -12,7 +12,7 @@ const isProd = process.env.NODE_ENV === 'production';
 async function startServer() {
   const app = express();
 
-  app.use('/api/analyze', express.raw({ type: ['audio/*', 'application/octet-stream'], limit: '80mb' }));
+  app.use('/api/analyze', express.raw({ type: ['audio/*', 'application/octet-stream'], limit: '4gb' }));
   app.use(express.json({ limit: '50mb' }));
 
   app.get('/api/health', (_req, res) => {
