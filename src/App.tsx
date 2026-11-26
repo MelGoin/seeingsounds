@@ -339,7 +339,13 @@ export default function App() {
           {audioUrl && <audio ref={audioRef} src={audioUrl} controls className="w-full" />}
 
           {visual && audioFile && (
-            <Visualizer report={visual} audioRef={audioRef} file={audioFile} fileName={analysis.track.file} />
+            <Visualizer
+              report={visual}
+              audioRef={audioRef}
+              file={audioFile}
+              fileName={analysis.track.file}
+              sampleRate={analysis.track.sr}
+            />
           )}
 
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

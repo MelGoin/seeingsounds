@@ -15,6 +15,7 @@
     "express": "^5.1.0",
     "fix-webm-duration": "1.0.6",
     "lucide-react": "^0.511.0",
+    "mediabunny": "1.65.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

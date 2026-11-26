@@ -1,9 +1,13 @@
-// Records the visualizer, with the track's audio, to a video file in the
-// browser, then adds a "Powered by Seeing Sounds / YeahMel" outro card.
-// Recording runs in real time (a 3-minute song takes about 3 minutes); the
-// audio goes into the file but is not played out loud.
+// Exports the visualizer, with the track's audio, as a video file ending on a
+// "Powered by Seeing Sounds / YeahMel" outro card.
+//
+// The normal path renders frame by frame (offlineExport.ts): constant frame
+// rate, no dropped frames, as fast as the computer allows. Browsers without
+// WebCodecs encoders fall back to recording the canvas in real time with
+// MediaRecorder, which can drop frames on a slow computer.
 import fixWebmDuration from 'fix-webm-duration';
 import type { VisualReport } from '../engine/visualizerMath.ts';
+import { decodeAt, EXTENSION, pickOfflinePlan, renderOffline } from './offlineExport.ts';
 import { drawOutro, drawVisual } from './render.ts';
 
 export type Aspect = 'landscape' | 'vertical' | 'square';
@@ -35,6 +39,11 @@ const MIME_TYPES = [
   'video/mp4',
 ];
 
+/** True when some export path exists in this browser. */
+export function canExport(): boolean {
+  return typeof VideoEncoder !== 'undefined' || pickMimeType() !== null;
+}
+
 export function pickMimeType(): string | null {
   if (typeof MediaRecorder === 'undefined') return null;
   return MIME_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) ?? null;
@@ -43,6 +52,8 @@ export function pickMimeType(): string | null {
 export interface ExportOptions {
   file: Blob;
   fileName: string;
+  /** The track's own sample rate, kept in the export where the codec allows. */
+  sampleRate: number;
   report: VisualReport;
   aspect: Aspect;
   quality: Quality;
@@ -51,7 +62,65 @@ export interface ExportOptions {
   signal: AbortSignal;
 }
 
-export async function exportVideo(opts: ExportOptions): Promise<File> {
+export type ExportMethod = 'frame-by-frame' | 'real-time';
+
+export interface ExportResult {
+  file: File;
+  method: ExportMethod;
+  /** Human-readable codecs, e.g. "H.264 + AAC". */
+  codecs: string;
+}
+
+const CODEC_NAMES: Record<string, string> = {
+  avc: 'H.264',
+  vp9: 'VP9',
+  av1: 'AV1',
+  aac: 'AAC 320 kbps',
+  opus: 'Opus 320 kbps',
+  'pcm-s24': '24-bit PCM (lossless)',
+};
+
+function outputName(fileName: string, ext: string) {
+  return `${fileName.replace(/\.[^.]+$/, '') || 'track'} - Seeing Sounds.${ext}`;
+}
+
+export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
+  const [w, h] = SIZES[opts.quality][opts.aspect];
+  const fps = FPS[opts.quality];
+  const bitrate = VIDEO_BITRATE[opts.quality];
+  if (opts.mark && !opts.mark.complete) await opts.mark.decode().catch(() => {});
+
+  const original = await decodeAt(opts.file, opts.sampleRate);
+  if (opts.signal.aborted) throw new DOMException('Export cancelled.', 'AbortError');
+  const plan = await pickOfflinePlan(w, h, fps, bitrate, original.numberOfChannels, original.sampleRate);
+  if (plan) {
+    const audio = plan.sampleRate === original.sampleRate ? original : await decodeAt(opts.file, plan.sampleRate);
+    const blob = await renderOffline({
+      plan,
+      audio,
+      report: opts.report,
+      fileName: opts.fileName,
+      width: w,
+      height: h,
+      fps,
+      videoBitrate: bitrate,
+      outroSeconds: OUTRO_SECONDS,
+      mark: opts.mark,
+      onProgress: opts.onProgress,
+      signal: opts.signal,
+    });
+    return {
+      file: new File([blob], outputName(opts.fileName, EXTENSION[plan.container]), { type: blob.type }),
+      method: 'frame-by-frame',
+      codecs: `${CODEC_NAMES[plan.video] ?? plan.video} + ${CODEC_NAMES[plan.audio] ?? plan.audio}`,
+    };
+  }
+  const file = await recordRealtime(opts);
+  return { file, method: 'real-time', codecs: file.type === 'video/mp4' ? 'H.264 + AAC' : 'WebM' };
+}
+
+/** Fallback: record the canvas while the audio plays (silently) in real time. */
+async function recordRealtime(opts: ExportOptions): Promise<File> {
   const mimeType = pickMimeType();
   if (!mimeType) throw new Error('This browser cannot record video. Try Chrome, Edge or Safari.');
 
@@ -133,9 +202,7 @@ export async function exportVideo(opts: ExportOptions): Promise<File> {
       // the length or seek. Write it in.
       video = await fixWebmDuration(video, total * 1000, { logger: false });
     }
-    const ext = type === 'video/mp4' ? 'mp4' : 'webm';
-    const base = opts.fileName.replace(/\.[^.]+$/, '') || 'track';
-    return new File([video], `${base} - Seeing Sounds.${ext}`, { type });
+    return new File([video], outputName(opts.fileName, type === 'video/mp4' ? 'mp4' : 'webm'), { type });
   } finally {
     cancelAnimationFrame(raf);
     try {

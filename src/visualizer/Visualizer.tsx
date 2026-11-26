@@ -4,7 +4,7 @@ import { Download, Film, LoaderCircle, Share2, X } from 'lucide-react';
 import type { VisualReport } from '../engine/visualizerMath.ts';
 import markUrl from './ss-mark.png';
 import { drawVisual } from './render.ts';
-import { exportVideo, OUTRO_SECONDS, pickMimeType, shareOrDownload } from './exportVideo.ts';
+import { canExport, exportVideo, OUTRO_SECONDS, shareOrDownload } from './exportVideo.ts';
 import type { Aspect, Quality } from './exportVideo.ts';
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
   audioRef: RefObject<HTMLAudioElement | null>;
   file: File;
   fileName: string;
+  sampleRate: number;
 }
 
 const selectClass =
@@ -23,7 +24,7 @@ function loadMark(): HTMLImageElement {
   return img;
 }
 
-export default function Visualizer({ report, audioRef, file, fileName }: Props) {
+export default function Visualizer({ report, audioRef, file, fileName, sampleRate }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mark = useMemo(loadMark, []);
   const [aspect, setAspect] = useState<Aspect>('landscape');
@@ -32,7 +33,7 @@ export default function Visualizer({ report, audioRef, file, fileName }: Props) 
   const [video, setVideo] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const canRecord = useMemo(() => pickMimeType() !== null, []);
+  const canRecord = useMemo(canExport, []);
   const canShare = useMemo(() => typeof navigator !== 'undefined' && typeof navigator.canShare === 'function', []);
 
   // Live view: redraw every animation frame (60 fps on most screens) at the
@@ -73,9 +74,11 @@ export default function Visualizer({ report, audioRef, file, fileName }: Props) 
     setMessage(null);
     setProgress(0);
     try {
+      const started = performance.now();
       const result = await exportVideo({
         file,
         fileName,
+        sampleRate,
         report,
         aspect,
         quality,
@@ -83,8 +86,14 @@ export default function Visualizer({ report, audioRef, file, fileName }: Props) 
         onProgress: setProgress,
         signal: controller.signal,
       });
-      setVideo(result);
-      setMessage(`Your video is ready (${(result.size / 1024 / 1024).toFixed(1)} MB).`);
+      setVideo(result.file);
+      const secs = Math.round((performance.now() - started) / 1000);
+      setMessage(
+        `Your video is ready: ${(result.file.size / 1024 / 1024).toFixed(1)} MB, ${result.codecs}, ` +
+          (result.method === 'frame-by-frame'
+            ? `rendered frame by frame in ${secs} s (no dropped frames).`
+            : `recorded in real time in ${secs} s (this browser can't render frame by frame, so a slow computer may drop frames).`)
+      );
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') setMessage('Export cancelled.');
       else setMessage(err instanceof Error ? err.message : 'Could not export the video.');
@@ -168,14 +177,14 @@ export default function Visualizer({ report, audioRef, file, fileName }: Props) 
           </div>
           <div className="mt-1 flex items-center gap-2 text-xs text-[#9c8f78]">
             <LoaderCircle className="h-3 w-3 animate-spin" />
-            Recording in real time ({Math.round((progress ?? 0) * 100)}%, about {minutes} min total). Keep this window open and visible.
+            Rendering your video ({Math.round((progress ?? 0) * 100)}%). Keep this window open. Song plus outro: about {minutes} min of video.
           </div>
         </div>
       )}
-      {!canRecord && <div className="mt-2 text-xs text-[#9c8f78]">Video export needs a browser that can record video, such as Chrome, Edge or Safari.</div>}
+      {!canRecord && <div className="mt-2 text-xs text-[#9c8f78]">Video export needs a browser that can encode video, such as Chrome, Edge or Safari.</div>}
       {message && <div className="mt-2 text-sm text-[#9c8f78]">{message}</div>}
       <div className="mt-1 text-xs text-[#9c8f78]">
-        Exports end with a {OUTRO_SECONDS}-second "Powered by Seeing Sounds / YeahMel" card. Audio is recorded from your original file in stereo at the highest bitrate your browser offers.
+        Exports end with a {OUTRO_SECONDS}-second "Powered by Seeing Sounds / YeahMel" card. Every frame is rendered at its exact time, so nothing is dropped however long it takes. Audio comes from your original file, in stereo.
       </div>
     </section>
   );
