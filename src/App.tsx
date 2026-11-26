@@ -19,7 +19,10 @@ import type { MathEngineAnalysis } from './engine/mathEngine.ts';
 import type { PhraseShape } from './engine/detailedAnalysis.ts';
 import { encodeMonoWav } from './engine/wavParser.ts';
 import { generateDeterministicTestTrack } from './engine/sampleTrack.ts';
-import type { AnalysisRequest, AnalysisResponse } from './engine/analysisWorker.ts';
+import { analyzeTrack } from './engine/analysisClient.ts';
+import type { AnalysisSource } from './engine/analysisClient.ts';
+import type { VisualReport } from './engine/visualizerMath.ts';
+import Visualizer from './visualizer/Visualizer.tsx';
 
 const SECTION_COLORS = ['#e8a84c', '#c7643a', '#8f9a5b', '#5e8ca8'];
 const TENSION_COLOR = '#e2725b';
@@ -35,58 +38,6 @@ function formatTime(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
-async function toWavBody(file: File): Promise<ArrayBuffer> {
-  const raw = await file.arrayBuffer();
-  if (/\.wav$/i.test(file.name) || file.type === 'audio/wav' || file.type === 'audio/x-wav') {
-    return raw;
-  }
-  const ctx = new AudioContext();
-  try {
-    const decoded = await ctx.decodeAudioData(raw);
-    const mono = new Float32Array(decoded.length);
-    for (let c = 0; c < decoded.numberOfChannels; c++) {
-      const data = decoded.getChannelData(c);
-      for (let i = 0; i < data.length; i++) mono[i] += data[i] / decoded.numberOfChannels;
-    }
-    return encodeMonoWav(mono, decoded.sampleRate);
-  } finally {
-    void ctx.close();
-  }
-}
-
-let analysisWorker: Worker | null = null;
-let nextRequestId = 0;
-
-// Analysis runs locally in a Web Worker, so the app works offline and inside
-// Tauri (desktop and iOS), where there is no Node server.
-function requestAnalysis(wav: ArrayBuffer, fileName: string, hopMs = 50): Promise<MathEngineAnalysis> {
-  analysisWorker ??= new Worker(new URL('./engine/analysisWorker.ts', import.meta.url), { type: 'module' });
-  const worker = analysisWorker;
-  const id = ++nextRequestId;
-  return new Promise((resolve, reject) => {
-    const onMessage = (event: MessageEvent<AnalysisResponse>) => {
-      if (event.data.id !== id) return;
-      cleanup();
-      if (event.data.ok) resolve(event.data.analysis);
-      else reject(new Error(event.data.error));
-    };
-    const onError = (event: ErrorEvent) => {
-      cleanup();
-      analysisWorker = null;
-      worker.terminate();
-      reject(new Error(event.message || 'Analysis failed.'));
-    };
-    const cleanup = () => {
-      worker.removeEventListener('message', onMessage);
-      worker.removeEventListener('error', onError);
-    };
-    worker.addEventListener('message', onMessage);
-    worker.addEventListener('error', onError);
-    const request: AnalysisRequest = { id, wav, fileName, hopMs };
-    worker.postMessage(request, [wav]);
-  });
 }
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -215,6 +166,9 @@ function ChromaChart({ chroma, dominant }: { chroma: Record<string, number>; dom
 
 export default function App() {
   const [analysis, setAnalysis] = useState<MathEngineAnalysis | null>(null);
+  const [visual, setVisual] = useState<VisualReport | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [source, setSource] = useState<AnalysisSource | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -243,10 +197,12 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const body = await toWavBody(file);
-      const result = await requestAnalysis(body, file.name);
+      const result = await analyzeTrack(file);
       setAudioUrl(URL.createObjectURL(file));
-      setAnalysis(result);
+      setAudioFile(file);
+      setAnalysis(result.analysis);
+      setVisual(result.visual);
+      setSource(result.source);
       setCurrentTime(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not analyze this file.');
@@ -334,7 +290,7 @@ export default function App() {
         )}
         <div>
           <div className="font-medium">{loading ? 'Measuring your track...' : 'Drop a track here'}</div>
-          <div className="text-sm text-[#9c8f78]">WAV works best. MP3, FLAC, and others are decoded in your browser.</div>
+          <div className="text-sm text-[#9c8f78]">Mono or stereo WAV (16, 24 or 32-bit), FLAC, MP3 and more, any length.</div>
         </div>
         <div className="flex gap-3">
           <button
@@ -368,6 +324,7 @@ export default function App() {
               <div className="text-lg font-semibold">{analysis.track.file}</div>
               <div className="text-sm text-[#9c8f78]">
                 {analysis.track.sr.toLocaleString()} Hz · {formatTime(analysis.track.duration_sec)} ({analysis.track.duration_sec}s)
+                {source && <> · Analyzed {source === 'server' ? 'on the Seeing Sounds server' : 'on this device'}</>}
               </div>
             </div>
             <button
@@ -380,6 +337,10 @@ export default function App() {
           </div>
 
           {audioUrl && <audio ref={audioRef} src={audioUrl} controls className="w-full" />}
+
+          {visual && audioFile && (
+            <Visualizer report={visual} audioRef={audioRef} file={audioFile} fileName={analysis.track.file} />
+          )}
 
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Stat label="Tempo" value={vm.bpm ? `${vm.bpm} BPM` : '—'} sub="Estimated from onset spacing" />
