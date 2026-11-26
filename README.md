@@ -51,7 +51,7 @@ A browser app for the math engine. Drop in a track, or use the built-in 92 BPM s
 - The 12-note chroma profile
 - A downloadable JSON report
 
-WAV files go straight to the server. Other formats (MP3, FLAC, and so on) are decoded in your browser first.
+All analysis runs inside the app, in a background worker, so nothing is uploaded. WAV files are read directly. Other formats (MP3, FLAC, and so on) are decoded by the browser first. The Node server still offers the same analysis as an HTTP API at `/api/analyze`.
 
 ```
 npm install
@@ -59,6 +59,10 @@ npm run dev
 ```
 
 Then open http://localhost:3000.
+
+### Desktop and iOS app
+
+The same app ships as a desktop app (macOS, Windows, Linux) and an iOS app through [Tauri](https://v2.tauri.app). See [docs/desktop-and-ios.md](docs/desktop-and-ios.md) for the tools to install and the build steps.
 
 ### ZEAL cover visualizer
 

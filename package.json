@@ -7,7 +7,9 @@
     "dev": "tsx server.ts",
     "build": "vite build",
     "start": "node server.ts",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "dev:web": "vite",
+    "tauri": "tauri"
   },
   "dependencies": {
     "express": "^5.1.0",
@@ -17,6 +19,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.4",
+    "@tauri-apps/cli": "^2.12.6",
     "@types/express": "^5.0.2",
     "@types/node": "^22.15.3",
     "@types/react": "^19.1.2",
